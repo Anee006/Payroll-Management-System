@@ -1,37 +1,35 @@
-import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { isSupabaseConfigured, supabase } from '../services/supabaseClient'
+import { isSupabaseConfigured } from '../services/supabaseClient'
+import { useAuth } from '../hooks/useAuth'
 
-function ProtectedRoute({ children }) {
-  const [isLoading, setIsLoading] = useState(isSupabaseConfigured)
-  const [session, setSession] = useState(null)
+function ProtectedRoute({ children, allowedRoles }) {
+  const { session, userRole, loading } = useAuth()
 
-  useEffect(() => {
-    if (!isSupabaseConfigured) {
-      return
-    }
-
-    const getCurrentSession = async () => {
-      const { data } = await supabase.auth.getSession()
-      setSession(data.session)
-      setIsLoading(false)
-    }
-
-    getCurrentSession()
-  }, [])
-
+  // If Supabase isn't configured yet, bypass checks entirely (for localized testing)
   if (!isSupabaseConfigured) {
     return children
   }
 
-  if (isLoading) {
-    return <div>Loading...</div>
+  // Wait for your Auth Context to finish resolving session + roles
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div>Loading...</div>
+      </div>
+    )
   }
 
+  // If no user session exists, redirect them to the login screen
   if (!session) {
     return <Navigate to="/" replace />
   }
 
+  // If a route specifies allowedRoles and the user's role isn't included, redirect
+  if (allowedRoles && !allowedRoles.includes(userRole)) {
+    return <Navigate to="/" replace /> // or redirect to an '/unauthorized' page
+  }
+
+  // All checks passed - render the component smoothly
   return children
 }
 
