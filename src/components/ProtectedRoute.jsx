@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { isSupabaseConfigured } from '../services/supabaseClient'
-import { useAuth } from '../hooks/useAuth'
+import useAuth from '../hooks/useAuth'
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { session, userRole, loading } = useAuth()
