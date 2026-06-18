@@ -13,21 +13,35 @@ function Login() {
   const handleSubmit = async (event) => {
     event.preventDefault()
     setError('')
-    setLoading(true)
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-
-    setLoading(false)
-
-    if (signInError) {
-      setError(signInError.message)
+    // Safety Check: If environmental variables are missing, don't stall the app
+    if (!supabase) {
+      setError("Supabase client is not configured. Please check your .env file.")
       return
     }
 
-    navigate('/dashboard')
+    setLoading(true)
+
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (signInError) {
+        setError(signInError.message)
+        setLoading(false)
+        return
+      }
+
+      // Smooth routing transition upon successful session creation
+      navigate('/dashboard')
+    } catch (err) {
+      console.error("Login compilation/network error:", err)
+      setError("An unexpected error occurred during login.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
