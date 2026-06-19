@@ -23,8 +23,31 @@ const initialFormState = {
   joining_date: '',
 }
 
+const initialFilterState = {
+  role: '',
+  department_id: '',
+  joining_month: '',
+  min_salary: '',
+  max_salary: '',
+}
+
 const inputClass =
   'w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'
+
+const monthOptions = [
+  { value: '01', label: 'January' },
+  { value: '02', label: 'February' },
+  { value: '03', label: 'March' },
+  { value: '04', label: 'April' },
+  { value: '05', label: 'May' },
+  { value: '06', label: 'June' },
+  { value: '07', label: 'July' },
+  { value: '08', label: 'August' },
+  { value: '09', label: 'September' },
+  { value: '10', label: 'October' },
+  { value: '11', label: 'November' },
+  { value: '12', label: 'December' },
+]
 
 const formatSalary = (salary) =>
   new Intl.NumberFormat('en-IN', {
@@ -180,8 +203,10 @@ function EmployeeForm({
 }
 
 function Employees() {
-  const { userRole } = useAuth()
-  const isAdmin = userRole?.toLowerCase() === 'admin'
+  const { session, userRole, userEmployeeId } = useAuth()
+  const normalizedUserRole = userRole?.toLowerCase()
+  const isAdmin = normalizedUserRole === 'admin'
+  const isManager = normalizedUserRole === 'manager'
 
   const [employees, setEmployees] = useState([])
   const [departments, setDepartments] = useState([])
@@ -195,6 +220,8 @@ function Employees() {
   const [formError, setFormError] = useState('')
   const [formLoading, setFormLoading] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [showFilters, setShowFilters] = useState(false)
+  const [filters, setFilters] = useState(initialFilterState)
 
   const loadEmployeesPageData = async () => {
     try {
@@ -246,19 +273,70 @@ function Employees() {
     }
   }, [])
 
-  const filteredEmployees = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase()
+  const visibleEmployees = useMemo(() => {
+    const signedInEmail = session?.user?.email?.toLowerCase()
 
-    if (!query) {
+    if (isAdmin) {
       return employees
     }
 
     return employees.filter((employee) => {
+      const employeeRole = employee.role?.toLowerCase()
+      const isSelf =
+        employee.email?.toLowerCase() === signedInEmail ||
+        employee.employee_id === userEmployeeId
+
+      if (isManager) {
+        return isSelf || employeeRole === 'employee'
+      }
+
+      return isSelf
+    })
+  }, [employees, isAdmin, isManager, session?.user?.email, userEmployeeId])
+
+  const filteredEmployees = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase()
+
+    return visibleEmployees.filter((employee) => {
       const name = employee.name?.toLowerCase() || ''
       const employeeId = employee.employee_id?.toLowerCase() || ''
-      return name.includes(query) || employeeId.includes(query)
+
+      if (query && !name.includes(query) && !employeeId.includes(query)) {
+        return false
+      }
+
+      if (!isAdmin) {
+        return true
+      }
+
+      if (filters.role && employee.role !== filters.role) {
+        return false
+      }
+
+      if (filters.department_id && employee.department_id !== filters.department_id) {
+        return false
+      }
+
+      if (filters.joining_month) {
+        const joiningMonth = employee.joining_date?.slice(5, 7)
+        if (joiningMonth !== filters.joining_month) {
+          return false
+        }
+      }
+
+      const salary = Number(employee.salary || 0)
+
+      if (filters.min_salary && salary < Number(filters.min_salary)) {
+        return false
+      }
+
+      if (filters.max_salary && salary > Number(filters.max_salary)) {
+        return false
+      }
+
+      return true
     })
-  }, [employees, searchQuery])
+  }, [filters, isAdmin, searchQuery, visibleEmployees])
 
   const selectedEmployeeForDelete = employees.find((employee) => employee.id === deleteConfirmId)
 
@@ -297,6 +375,15 @@ function Employees() {
   const handleFormChange = (event) => {
     const { name, value } = event.target
     setFormData((currentData) => ({ ...currentData, [name]: value }))
+  }
+
+  const handleFilterChange = (event) => {
+    const { name, value } = event.target
+    setFilters((currentFilters) => ({ ...currentFilters, [name]: value }))
+  }
+
+  const clearFilters = () => {
+    setFilters(initialFilterState)
   }
 
   const buildEmployeePayload = () => ({
@@ -411,7 +498,16 @@ function Employees() {
             </p>
           </div>
 
-          {isAdmin && <Button label="Add Employee" onClick={openAddModal} />}
+          {isAdmin && (
+            <div className="flex flex-wrap gap-3">
+              <Button
+                label={showFilters ? 'Hide Filters' : 'Filter Employees'}
+                variant="secondary"
+                onClick={() => setShowFilters((currentValue) => !currentValue)}
+              />
+              <Button label="Add Employee" onClick={openAddModal} />
+            </div>
+          )}
         </div>
 
         <Card>
@@ -428,6 +524,112 @@ function Employees() {
               className="w-full rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 md:max-w-md"
             />
           </div>
+
+          {isAdmin && showFilters && (
+            <div className="mb-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                <div>
+                  <label htmlFor="filter-role" className="mb-1 block text-sm font-medium text-slate-700">
+                    Role
+                  </label>
+                  <select
+                    id="filter-role"
+                    name="role"
+                    value={filters.role}
+                    onChange={handleFilterChange}
+                    className={inputClass}
+                  >
+                    <option value="">All roles</option>
+                    <option value="Employee">Employee</option>
+                    <option value="Manager">Manager</option>
+                    <option value="Admin">Admin</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="filter-department"
+                    className="mb-1 block text-sm font-medium text-slate-700"
+                  >
+                    Department
+                  </label>
+                  <select
+                    id="filter-department"
+                    name="department_id"
+                    value={filters.department_id}
+                    onChange={handleFilterChange}
+                    className={inputClass}
+                  >
+                    <option value="">All departments</option>
+                    {departments.map((department) => (
+                      <option key={department.id} value={department.id}>
+                        {department.department_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="filter-joining-month"
+                    className="mb-1 block text-sm font-medium text-slate-700"
+                  >
+                    Joining Month
+                  </label>
+                  <select
+                    id="filter-joining-month"
+                    name="joining_month"
+                    value={filters.joining_month}
+                    onChange={handleFilterChange}
+                    className={inputClass}
+                  >
+                    <option value="">Any month</option>
+                    {monthOptions.map((month) => (
+                      <option key={month.value} value={month.value}>
+                        {month.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="filter-min-salary" className="mb-1 block text-sm font-medium text-slate-700">
+                    Min Salary
+                  </label>
+                  <input
+                    id="filter-min-salary"
+                    name="min_salary"
+                    type="number"
+                    min="0"
+                    value={filters.min_salary}
+                    onChange={handleFilterChange}
+                    className={inputClass}
+                    placeholder="0"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="filter-max-salary" className="mb-1 block text-sm font-medium text-slate-700">
+                    Max Salary
+                  </label>
+                  <input
+                    id="filter-max-salary"
+                    name="max_salary"
+                    type="number"
+                    min="0"
+                    value={filters.max_salary}
+                    onChange={handleFilterChange}
+                    className={inputClass}
+                    placeholder="100000"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4 flex justify-end">
+                <Button label="Clear Filters" variant="secondary" onClick={clearFilters} />
+              </div>
+            </div>
+          )}
 
           {error && (
             <div className="mb-5 rounded-md bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
