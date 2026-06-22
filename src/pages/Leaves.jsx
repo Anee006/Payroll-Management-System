@@ -342,7 +342,7 @@ function EmployeeLeavePanel({ employeeId, showToast }) {
 }
 
 // ─── Admin Approval Panel (Pending + All Requests) ──────────────────────────
-function AdminApprovalPanel({ approverEmployeeId, showToast }) { // 👈 FIX: Extracted approver's physical table UUID
+function AdminApprovalPanel({ approverEmployeeId, showToast }) { 
   const [allLeaves, setAllLeaves] = useState([])
   const [employeeMap, setEmployeeMap] = useState({})
   const [loading, setLoading] = useState(true)
@@ -397,7 +397,7 @@ function AdminApprovalPanel({ approverEmployeeId, showToast }) { // 👈 FIX: Ex
   const handleAction = async (leaveId, status) => {
     setActionLoading(leaveId)
     try {
-      // 👈 FIX: Passes the true database Employee UUID to satisfy foreign key constraint
+      // Pass the true database Employee UUID to satisfy foreign key constraint
       await updateLeaveStatus(leaveId, status, approverEmployeeId)
       await loadLeaves()
       showToast(`Leave request ${status.toLowerCase()} successfully!`, 'success')
@@ -512,7 +512,7 @@ function AdminApprovalPanel({ approverEmployeeId, showToast }) { // 👈 FIX: Ex
               type="button"
               onClick={() => {
                 setStatusFilter(option)
-                setPage(1) // 👈 FIX: ESLint setup update directly in action handler click event
+                setPage(1) 
               }}
               className={`rounded-md px-4 py-2 text-sm font-medium transition ${statusFilter === option ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
             >
@@ -549,7 +549,7 @@ function EmployeeView({ employeeId, showToast }) {
 function ManagerView({ employeeId, showToast }) {
   return (
     <div className="space-y-6">
-      {/* 👈 FIX: Removed AdminApprovalPanel out of Manager view layout to respect RLS access rules */}
+      {/* Remove AdminApprovalPanel out of Manager view layout to respect RLS access rules */}
       <EmployeeLeavePanel employeeId={employeeId} showToast={showToast} />
     </div>
   )
