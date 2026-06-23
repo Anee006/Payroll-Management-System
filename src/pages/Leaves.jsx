@@ -370,10 +370,11 @@ function EmployeeLeavePanel({ employeeId, showToast }) {
 
 // ─── Admin Approval Panel (Pending + All Requests) ──────────────────────────
 // Reused by both AdminView and ManagerView
+// approverRole: 'admin' shows all leaves; 'manager' shows only employee-role leaves
 
-function AdminApprovalPanel({ session, showToast }) {
+function AdminApprovalPanel({ session, showToast, approverEmployeeId, approverRole }) {
   const [allLeaves, setAllLeaves] = useState([])
-  const [employeeMap, setEmployeeMap] = useState({})
+  const [employeeMap, setEmployeeMap] = useState({}) // id -> { name, role }
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
@@ -385,25 +386,31 @@ function AdminApprovalPanel({ session, showToast }) {
       const leavesData = await getAllLeaves()
       setAllLeaves(leavesData || [])
 
-      // Build employee name lookup map
+      // Build employee info map: id -> { name, role }
+      // This powers: employee names, role-based filtering, AND "Decided By" display
       const map = {}
 
-      // First, extract any names from the Supabase join (always available)
+      // From join data (requester info from employees!employee_id)
       for (const leave of leavesData || []) {
-        if (leave.employees?.name && leave.employee_id) {
-          map[leave.employee_id] = leave.employees.name
+        if (leave.employees && leave.employee_id) {
+          map[leave.employee_id] = {
+            name: leave.employees.name || leave.employee_id,
+            role: (leave.employees.role || '').toLowerCase(),
+          }
         }
       }
 
-      // Then try to load full employee list (may fail if RLS blocks manager)
+      // From full employee list — gives us ALL employees including approvers
       try {
         const employeesData = await getAllEmployees()
         for (const emp of employeesData || []) {
-          map[emp.id] = emp.name || emp.employee_id || emp.id
+          map[emp.id] = {
+            name: emp.name || emp.employee_id || emp.id,
+            role: (emp.role || '').toLowerCase(),
+          }
         }
       } catch {
-        // Manager may not have SELECT access on employees table — that's OK,
-        // we'll use whatever names we got from the join above
+        // Manager may not have SELECT access — use join data above
       }
 
       setEmployeeMap(map)
@@ -422,7 +429,9 @@ function AdminApprovalPanel({ session, showToast }) {
   const handleAction = async (leaveId, status) => {
     setActionLoading(leaveId)
     try {
-      await updateLeaveStatus(leaveId, status, session?.user?.id || null)
+      // Use the approver's employees-table UUID (not auth UUID) to satisfy
+      // the leave_requests_approved_by_fkey foreign-key constraint.
+      await updateLeaveStatus(leaveId, status, approverEmployeeId || null)
       await loadLeaves()
       showToast(
         `Leave request ${status.toLowerCase()} successfully!`,
@@ -435,16 +444,33 @@ function AdminApprovalPanel({ session, showToast }) {
     }
   }
 
+  // For managers: only show leaves from employees (role = 'employee'),
+  // and never the manager's own leaves.
+  // For admins: show all leaves.
+  const visibleLeaves = useMemo(() => {
+    if (approverRole === 'manager') {
+      return allLeaves.filter((l) => {
+        // Exclude the manager's own leaves
+        if (l.employee_id === approverEmployeeId) return false
+        // Only show leaves from employees (not from other managers/admins)
+        const requesterRole =
+          (l.employees?.role || employeeMap[l.employee_id]?.role || '').toLowerCase()
+        return requesterRole === 'employee'
+      })
+    }
+    return allLeaves
+  }, [allLeaves, approverRole, approverEmployeeId, employeeMap])
+
   // Separate pending and filtered lists
   const pendingLeaves = useMemo(
-    () => allLeaves.filter((l) => l.status === 'Pending'),
-    [allLeaves],
+    () => visibleLeaves.filter((l) => l.status === 'Pending'),
+    [visibleLeaves],
   )
 
   const filteredLeaves = useMemo(() => {
-    if (statusFilter === 'All') return allLeaves
-    return allLeaves.filter((l) => l.status === statusFilter)
-  }, [allLeaves, statusFilter])
+    if (statusFilter === 'All') return visibleLeaves
+    return visibleLeaves.filter((l) => l.status === statusFilter)
+  }, [visibleLeaves, statusFilter])
 
   // Pagination
   const totalPages = Math.max(
@@ -462,7 +488,7 @@ function AdminApprovalPanel({ session, showToast }) {
   }, [statusFilter])
 
   const getEmployeeName = (leave) =>
-    leave.employees?.name || employeeMap[leave.employee_id] || leave.employee_id || '-'
+    leave.employees?.name || employeeMap[leave.employee_id]?.name || leave.employee_id || '-'
 
   // ── Pending table ──
   const pendingColumns = [
@@ -551,7 +577,7 @@ function AdminApprovalPanel({ session, showToast }) {
         color={statusColors[leave.status] || 'blue'}
       />
     ),
-    decidedBy: leave.approved_by ? (employeeMap[leave.approved_by] || leave.approved_by) : '—',
+    decidedBy: leave.approved_by ? (employeeMap[leave.approved_by]?.name || leave.approved_by) : '—',
   }))
 
   const filterOptions = ['All', 'Pending', 'Approved', 'Rejected']
@@ -679,17 +705,17 @@ function ManagerView({ employeeId, session, showToast }) {
         </div>
       </div>
 
-      <AdminApprovalPanel session={session} showToast={showToast} />
+      <AdminApprovalPanel session={session} showToast={showToast} approverEmployeeId={employeeId} approverRole="manager" />
     </div>
   )
 }
 
 // ─── Admin View (Approve/Reject only, no personal leaves) ───────────────────
 
-function AdminView({ session, showToast }) {
+function AdminView({ session, showToast, approverEmployeeId }) {
   return (
     <div className="space-y-6">
-      <AdminApprovalPanel session={session} showToast={showToast} />
+      <AdminApprovalPanel session={session} showToast={showToast} approverEmployeeId={approverEmployeeId} approverRole="admin" />
     </div>
   )
 }
@@ -700,6 +726,7 @@ function Leaves() {
   const { session, userRole, userEmployeeId } = useAuth()
 
   const [employeeId, setEmployeeId] = useState(null)
+  const [resolvedRole, setResolvedRole] = useState(null)
   const [loadingEmployee, setLoadingEmployee] = useState(true)
   const [employeeError, setEmployeeError] = useState('')
 
@@ -710,78 +737,67 @@ function Leaves() {
     setToast({ message, type, key: Date.now() })
   }, [])
 
-  const effectiveRole = userRole?.toLowerCase?.() || ''
-  const isAdmin = effectiveRole === 'admin'
-  const isManager = effectiveRole === 'manager'
-
-  // For non-admin users (employees + managers), resolve their employee record
+  // Resolve the employee record AND the effective role from the employees table.
+  // This fixes the "reversed role" bug: the users table may have stale/wrong roles,
+  // so we always prefer the role from the employees table (same pattern as Employees.jsx).
   useEffect(() => {
-    if (isAdmin) {
-      setLoadingEmployee(false)
-      return
-    }
-
     let isMounted = true
 
     async function resolveEmployee() {
       try {
         const email = session?.user?.email
         const authUserId = session?.user?.id
+        let foundEmployee = null
 
         // Strategy 1: Look up by email
         if (email) {
-          const employee = await getEmployeeByEmail(email)
-          if (employee) {
-            if (isMounted) {
-              setEmployeeId(employee.id)
-              setEmployeeError('')
-            }
-            return
-          }
+          foundEmployee = await getEmployeeByEmail(email)
         }
 
         // Strategy 2: Use userEmployeeId from auth context directly
-        if (userEmployeeId) {
+        if (!foundEmployee && userEmployeeId) {
           try {
-            const employee = await getEmployeeById(userEmployeeId)
-            if (employee) {
-              if (isMounted) {
-                setEmployeeId(employee.id)
-                setEmployeeError('')
-              }
-              return
-            }
+            foundEmployee = await getEmployeeById(userEmployeeId)
           } catch {
             // ID didn't match, continue to fallback
           }
         }
 
         // Strategy 3: Fetch all employees and fuzzy-match
-        const allEmployees = await getAllEmployees()
-        const normalEmail = (email || '').trim().toLowerCase()
-        const normalAuthId = (authUserId || '').trim().toLowerCase()
-        const normalEmpId = (userEmployeeId || '').trim().toLowerCase()
+        if (!foundEmployee) {
+          const allEmployeesData = await getAllEmployees()
+          const normalEmail = (email || '').trim().toLowerCase()
+          const normalAuthId = (authUserId || '').trim().toLowerCase()
+          const normalEmpId = (userEmployeeId || '').trim().toLowerCase()
 
-        const match = allEmployees?.find((emp) => {
-          const empEmail = (emp.email || '').trim().toLowerCase()
-          const empRowId = (emp.id || '').trim().toLowerCase()
-          const empCode = (emp.employee_id || '').trim().toLowerCase()
+          foundEmployee = allEmployeesData?.find((emp) => {
+            const empEmail = (emp.email || '').trim().toLowerCase()
+            const empRowId = (emp.id || '').trim().toLowerCase()
+            const empCode = (emp.employee_id || '').trim().toLowerCase()
 
-          return (
-            (normalEmail && empEmail === normalEmail) ||
-            (normalAuthId &&
-              (empRowId === normalAuthId || empCode === normalAuthId)) ||
-            (normalEmpId &&
-              (empRowId === normalEmpId || empCode === normalEmpId))
-          )
-        })
+            return (
+              (normalEmail && empEmail === normalEmail) ||
+              (normalAuthId &&
+                (empRowId === normalAuthId || empCode === normalAuthId)) ||
+              (normalEmpId &&
+                (empRowId === normalEmpId || empCode === normalEmpId))
+            )
+          }) || null
+        }
 
-        if (match) {
+        if (foundEmployee) {
           if (isMounted) {
-            setEmployeeId(match.id)
+            setEmployeeId(foundEmployee.id)
+            // Prefer role from employees table; fall back to users table role
+            setResolvedRole((foundEmployee.role || userRole || '').toLowerCase())
             setEmployeeError('')
           }
           return
+        }
+
+        // No employee record found — still set the role so admin view works
+        if (isMounted) {
+          setResolvedRole((userRole || '').toLowerCase())
         }
 
         throw new Error(
@@ -790,6 +806,10 @@ function Leaves() {
       } catch (err) {
         if (isMounted) {
           setEmployeeError(err.message)
+          // Still set the role so admin view can render even without an employee record
+          if (!resolvedRole) {
+            setResolvedRole((userRole || '').toLowerCase())
+          }
         }
       } finally {
         if (isMounted) {
@@ -803,7 +823,11 @@ function Leaves() {
     return () => {
       isMounted = false
     }
-  }, [isAdmin, session, userEmployeeId])
+  }, [session, userEmployeeId, userRole])
+
+  const effectiveRole = resolvedRole || (userRole || '').toLowerCase()
+  const isAdmin = effectiveRole === 'admin'
+  const isManager = effectiveRole === 'manager'
 
   const getSubtitle = () => {
     if (isAdmin) return 'Review, approve, or reject employee leave requests.'
@@ -829,7 +853,7 @@ function Leaves() {
     }
 
     if (isAdmin) {
-      return <AdminView session={session} showToast={showToast} />
+      return <AdminView session={session} showToast={showToast} approverEmployeeId={employeeId} />
     }
 
     if (isManager) {

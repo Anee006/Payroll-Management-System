@@ -2,28 +2,22 @@ import { supabase } from './supabaseClient'
 
 // Get leave requests for an employee
 export async function getLeavesByEmployee(employeeId) {
-  console.log('[leaveService] getLeavesByEmployee called with:', employeeId)
   const { data, error } = await supabase
     .from('leave_requests')
     .select('*')
     .eq('employee_id', employeeId)
     .order('created_at', { ascending: false })
-  console.log('[leaveService] getLeavesByEmployee result:', { data, error })
   if (error) throw error
   return data
 }
 
 // Get ALL leave requests (Admin/Manager view)
+// Joins requester name + role via employee_id FK
 export async function getAllLeaves() {
-  // First try a simple select to check if RLS is blocking
-  const debug = await supabase.from('leave_requests').select('*')
-  console.log('[leaveService] DEBUG simple select:', { data: debug.data, error: debug.error, count: debug.data?.length })
-
   const { data, error } = await supabase
     .from('leave_requests')
-    .select('*, employees!employee_id(name, employee_id)')
+    .select('*, employees!employee_id(name, employee_id, role)')
     .order('created_at', { ascending: false })
-  console.log('[leaveService] getAllLeaves result:', { data, error, count: data?.length })
   if (error) throw error
   return data
 }
@@ -32,13 +26,21 @@ export async function getAllLeaves() {
 export async function applyLeave(employeeId, startDate, endDate, reason) {
   const { data, error } = await supabase
     .from('leave_requests')
-    .insert([{ employee_id: employeeId, start_date: startDate, end_date: endDate, reason }])
+    .insert([
+      {
+        employee_id: employeeId,
+        start_date: startDate,
+        end_date: endDate,
+        reason,
+      },
+    ])
     .select()
   if (error) throw error
   return data[0]
 }
 
 // Update leave status (Approve/Reject)
+// Throws if RLS silently blocks the update (returns 0 rows).
 export async function updateLeaveStatus(leaveId, status, approvedBy) {
   const { data, error } = await supabase
     .from('leave_requests')
@@ -46,6 +48,11 @@ export async function updateLeaveStatus(leaveId, status, approvedBy) {
     .eq('id', leaveId)
     .select()
   if (error) throw error
+  if (!data || data.length === 0) {
+    throw new Error(
+      'Update was blocked — you may not have permission to approve/reject this leave. Please contact your administrator.',
+    )
+  }
   return data[0]
 }
 
