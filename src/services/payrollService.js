@@ -1,10 +1,34 @@
 import { supabase } from './supabaseClient'
 
+const payrollWithEmployeeSelect =
+  '*, employees(id, name, employee_id, joining_date, departments(department_name))'
+
+const normalizeValue = (value) => String(value || '').trim().toLowerCase()
+
+const isUuid = (value) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    String(value || ''),
+  )
+
+const matchesEmployeeIdentifier = (record, identifiers) => {
+  const normalizedIdentifiers = identifiers.map(normalizeValue).filter(Boolean)
+
+  return normalizedIdentifiers.some((identifier) =>
+    [
+      record.employee_id,
+      record.employees?.id,
+      record.employees?.employee_id,
+    ]
+      .map(normalizeValue)
+      .includes(identifier),
+  )
+}
+
 // Get all payroll records (admin)
 export async function getAllPayroll() {
   const { data, error } = await supabase
     .from('payroll')
-    .select('*, employees(name, employee_id, departments(department_name))')
+    .select(payrollWithEmployeeSelect)
     .order('generated_at', { ascending: false })
 
   if (error) throw error
@@ -21,6 +45,37 @@ export async function getPayrollByEmployee(employeeId) {
 
   if (error) throw error
   return data
+}
+
+// Get payroll for the signed-in employee using all known app/auth identifiers.
+export async function getPayrollByEmployeeIdentifiers(identifiers = []) {
+  const uniqueIdentifiers = [...new Set(identifiers.filter(Boolean))]
+  const uuidIdentifiers = uniqueIdentifiers.filter(isUuid)
+
+  if (uuidIdentifiers.length > 0) {
+    const { data, error } = await supabase
+      .from('payroll')
+      .select(payrollWithEmployeeSelect)
+      .in('employee_id', uuidIdentifiers)
+      .order('month', { ascending: false })
+
+    if (error) throw error
+
+    if (data?.length) {
+      return data
+    }
+  }
+
+  const { data, error } = await supabase
+    .from('payroll')
+    .select(payrollWithEmployeeSelect)
+    .order('month', { ascending: false })
+
+  if (error) throw error
+
+  return (data || []).filter((record) =>
+    matchesEmployeeIdentifier(record, uniqueIdentifiers),
+  )
 }
 
 // Generate payroll for an employee for a month

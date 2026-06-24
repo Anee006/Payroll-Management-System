@@ -15,7 +15,7 @@ import {
   deletePayroll,
   generatePayroll,
   getAllPayroll,
-  getPayrollByEmployee,
+  getPayrollByEmployeeIdentifiers,
 } from '../services/payrollService'
 import { formatCurrency } from '../utils/dateHelpers'
 
@@ -463,7 +463,7 @@ function AdminView() {
   )
 }
 
-function EmployeeView({ employee }) {
+function EmployeeView({ employee, payrollIdentifiers }) {
   const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -474,7 +474,7 @@ function EmployeeView({ employee }) {
 
     async function loadPayroll() {
       try {
-        const data = await getPayrollByEmployee(employee.id)
+        const data = await getPayrollByEmployeeIdentifiers(payrollIdentifiers)
         if (isMounted) {
           setRecords(data || [])
           setError('')
@@ -495,7 +495,7 @@ function EmployeeView({ employee }) {
     return () => {
       isMounted = false
     }
-  }, [employee.id])
+  }, [payrollIdentifiers])
 
   const columns = [
     { key: 'month', label: 'Month' },
@@ -549,7 +549,7 @@ function EmployeeView({ employee }) {
 
       <Payslip
         payrollRecord={payslipTarget}
-        employeeRecord={employee}
+        employeeRecord={payslipTarget?.employees || employee}
         onClose={() => setPayslipTarget(null)}
       />
     </div>
@@ -645,6 +645,17 @@ function Payroll() {
   const effectiveRole = resolvedRole || (userRole || '').toLowerCase()
   const isAdmin = effectiveRole === 'admin'
 
+  const payrollIdentifiers = useMemo(
+    () =>
+      [
+        employee?.id,
+        employee?.employee_id,
+        userEmployeeId,
+        session?.user?.id,
+      ].filter(Boolean),
+    [employee, session, userEmployeeId],
+  )
+
   const renderContent = () => {
     if (loadingEmployee) {
       return (
@@ -666,7 +677,12 @@ function Payroll() {
       return <AdminView />
     }
 
-    return <EmployeeView employee={employee} />
+    return (
+      <EmployeeView
+        employee={employee}
+        payrollIdentifiers={payrollIdentifiers}
+      />
+    )
   }
 
   return (
