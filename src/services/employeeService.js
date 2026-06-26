@@ -63,7 +63,7 @@ export async function getAllDepartments() {
 export async function getEmployeeByEmail(email) {
   const { data, error } = await supabase
     .from('employees')
-    .select('*')
+    .select('*, departments(department_name)')
     .eq('email', email)
     .maybeSingle()
 
