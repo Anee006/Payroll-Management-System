@@ -179,4 +179,4 @@ All tables are protected with Supabase RLS policies that enforce role-based acce
 
 ## License
 
-This project is developed as part of an internship program.
+This project is developed as part of an training program.
