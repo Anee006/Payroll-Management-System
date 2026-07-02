@@ -7,7 +7,9 @@ import Employees from './pages/Employees'
 import Leaves from './pages/Leaves'
 import Login from './pages/Login'
 import Payroll from './pages/Payroll'
+import Permissions from './pages/Permissions'
 import Profile from './pages/Profile'
+import Roles from './pages/Roles'
 
 function App() {
   return (
@@ -67,6 +69,22 @@ function App() {
           element={
             <ProtectedRoute>
               <Profile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/roles"
+          element={
+            <ProtectedRoute>
+              <Roles />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/permissions"
+          element={
+            <ProtectedRoute>
+              <Permissions />
             </ProtectedRoute>
           }
         />
