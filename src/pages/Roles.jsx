@@ -1,42 +1,68 @@
-import { usePermissionContext } from '../contexts/PermissionContext'
+import RoleCard from '../components/RoleCard'
+import DashboardLayout from '../layouts/DashboardLayout'
 
-export default function Roles() {
-  // Akshit will connect real data tomorrow — use empty arrays for now
-  const roles = [
-    { id: 1, name: 'Admin', description: 'Full access' },
-    { id: 2, name: 'Manager', description: 'Manage team' },
-    { id: 3, name: 'Employee', description: 'Own data only' }
-  ]
+const roles = [
+  {
+    id: 1,
+    name: 'Admin',
+    description:
+      'Full access across payroll, employees, attendance, leaves, and settings.',
+    permissionCount: 49,
+    isProtected: true,
+  },
+  {
+    id: 2,
+    name: 'Manager',
+    description: 'Manage team attendance, leave approvals, and team records.',
+    permissionCount: 24,
+    isProtected: true,
+  },
+  {
+    id: 3,
+    name: 'Employee',
+    description: 'View personal attendance, leave, profile, and payslips.',
+    permissionCount: 14,
+    isProtected: true,
+  },
+]
 
+function Roles() {
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Role Management</h1>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-          + Create Role
-        </button>
-      </div>
-
-      {/* Role Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {roles.map(role => (
-          <div key={role.id} className="bg-white rounded-xl shadow p-5 border border-gray-100">
-            <div className="flex justify-between items-start">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-800">{role.name}</h2>
-                <p className="text-sm text-gray-500 mt-1">{role.description}</p>
-              </div>
-              <div className="flex gap-2">
-                <button className="text-blue-500 hover:text-blue-700 text-sm">Edit</button>
-                <button className="text-red-400 hover:text-red-600 text-sm">Delete</button>
-              </div>
-            </div>
-            <div className="mt-4">
-              <span className="text-xs text-gray-400">Permissions assigned: —</span>
-            </div>
+    <DashboardLayout title="Roles">
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">
+              Role Management
+            </h1>
+            <p className="mt-1 text-sm text-slate-500">
+              Review default access groups before backend role management is connected.
+            </p>
           </div>
-        ))}
+          <button
+            type="button"
+            className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+          >
+            + Create Role
+          </button>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          {roles.map((role) => (
+            <RoleCard
+              key={role.id}
+              name={role.name}
+              description={role.description}
+              permissionCount={role.permissionCount}
+              isProtected={role.isProtected}
+              onEdit={() => {}}
+              onDelete={() => {}}
+            />
+          ))}
+        </div>
       </div>
-    </div>
+    </DashboardLayout>
   )
 }
+
+export default Roles

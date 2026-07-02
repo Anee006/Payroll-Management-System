@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { KeyRound, ShieldCheck } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabaseClient'
 
@@ -13,8 +14,8 @@ const navItems = [
 ]
 
 const settingsNavItems = [
-  { label: 'Roles', path: '/roles', icon: '🛡️' },
-  { label: 'Permissions', path: '/permissions', icon: '🔑' },
+  { label: 'Roles', path: '/roles', icon: ShieldCheck },
+  { label: 'Permissions', path: '/permissions', icon: KeyRound },
 ]
 
 function DashboardLayout({ title, children }) {
@@ -61,27 +62,30 @@ function DashboardLayout({ title, children }) {
             </NavLink>
           ))}
 
-          {/* Settings Section */}
-          <div className="pt-4 mt-4 border-t border-white/10">
-            <p className="px-3 mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+          <div className="mt-4 border-t border-white/10 pt-4">
+            <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
               SETTINGS
             </p>
-            {settingsNavItems.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition ${
-                    isActive
-                      ? 'bg-white text-slate-900'
-                      : 'text-slate-200 hover:bg-white/10 hover:text-white'
-                  }`
-                }
-              >
-                <span className="text-base">{item.icon}</span>
-                {item.label}
-              </NavLink>
-            ))}
+            {settingsNavItems.map((item) => {
+              const Icon = item.icon
+
+              return (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition ${
+                      isActive
+                        ? 'bg-white text-slate-900'
+                        : 'text-slate-200 hover:bg-white/10 hover:text-white'
+                    }`
+                  }
+                >
+                  <Icon className="h-4 w-4" strokeWidth={2.25} />
+                  {item.label}
+                </NavLink>
+              )
+            })}
           </div>
         </nav>
 
@@ -100,7 +104,8 @@ function DashboardLayout({ title, children }) {
         <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-8">
           <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
           <div className="text-sm text-slate-600">
-            Signed in as <span className="font-medium text-slate-900">{userLabel}</span>
+            Signed in as{' '}
+            <span className="font-medium text-slate-900">{userLabel}</span>
           </div>
         </header>
 
