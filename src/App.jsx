@@ -77,7 +77,7 @@ function App() {
         <Route
           path="/roles"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute permission="roles.manage">
               <Roles />
             </ProtectedRoute>
           }
@@ -85,7 +85,7 @@ function App() {
         <Route
           path="/permissions"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute permission="roles.manage">
               <Permissions />
             </ProtectedRoute>
           }
