@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
 import Attendance from './pages/Attendance'
+import AuditLogs from './pages/AuditLogs'
 import Dashboard from './pages/Dashboard'
 import Departments from './pages/Departments'
 import Employees from './pages/Employees'
@@ -85,6 +86,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Permissions />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/audit-logs"
+          element={
+            <ProtectedRoute>
+              <AuditLogs />
             </ProtectedRoute>
           }
         />
