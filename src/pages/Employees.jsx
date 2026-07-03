@@ -12,6 +12,7 @@ import {
   getAllEmployees,
   updateEmployee,
 } from '../services/employeeService'
+import { getAllRoles } from '../services/permissionService'
 
 const initialFormState = {
   employee_id: '',
@@ -19,6 +20,7 @@ const initialFormState = {
   email: '',
   department_id: '',
   role: 'Employee',
+  role_id: '',
   salary: '',
   joining_date: '',
 }
@@ -69,10 +71,12 @@ const normalizeValue = (value) => String(value || '').trim().toLowerCase()
 
 function EmployeeForm({
   departments,
+  availableRoles,
   formData,
   formError,
   loading,
   onChange,
+  onRoleChange,
   onSubmit,
   submitLabel,
 }) {
@@ -151,15 +155,18 @@ function EmployeeForm({
           </label>
           <select
             id="role"
-            name="role"
-            value={formData.role}
-            onChange={onChange}
+            name="role_id"
+            value={formData.role_id || ''}
+            onChange={onRoleChange}
             required
             className={inputClass}
           >
-            <option value="Employee">Employee</option>
-            <option value="Manager">Manager</option>
-            <option value="Admin">Admin</option>
+            <option value="">Select Role</option>
+            {availableRoles.map((role) => (
+              <option key={role.id} value={role.id}>
+                {role.name}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -209,6 +216,7 @@ function Employees() {
 
   const [employees, setEmployees] = useState([])
   const [departments, setDepartments] = useState([])
+  const [availableRoles, setAvailableRoles] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
@@ -271,15 +279,17 @@ function Employees() {
 
     async function loadInitialEmployeesPageData() {
       try {
-        const [employeesData, departmentsData] = await Promise.all([
+        const [employeesData, departmentsData, rolesData] = await Promise.all([
           getAllEmployees(),
           getAllDepartments(),
+          getAllRoles(),
         ])
 
         if (!isMounted) return
 
         setEmployees(employeesData || [])
         setDepartments(departmentsData || [])
+        setAvailableRoles(rolesData || [])
         setError('')
       } catch (err) {
         if (isMounted) {
@@ -400,6 +410,7 @@ function Employees() {
       email: employee.email || '',
       department_id: employee.department_id || '',
       role: employee.role || 'Employee',
+      role_id: employee.role_id || '',
       salary: employee.salary || '',
       joining_date: employee.joining_date?.split('T')[0] || '',
     })
@@ -427,9 +438,20 @@ function Employees() {
     setFilters(initialFilterState)
   }
 
+  const handleRoleChange = (event) => {
+    const selectedId = parseInt(event.target.value)
+    const selectedRole = availableRoles.find((r) => r.id === selectedId)
+    setFormData((currentData) => ({
+      ...currentData,
+      role_id: selectedId || '',
+      role: selectedRole?.name || '',
+    }))
+  }
+
   const buildEmployeePayload = () => ({
     ...formData,
     salary: Number(formData.salary),
+    role_id: formData.role_id ? Number(formData.role_id) : null,
   })
 
   const handleAddEmployee = async (event) => {
@@ -581,9 +603,11 @@ function Employees() {
                     className={inputClass}
                   >
                     <option value="">All roles</option>
-                    <option value="Employee">Employee</option>
-                    <option value="Manager">Manager</option>
-                    <option value="Admin">Admin</option>
+                    {availableRoles.map((role) => (
+                      <option key={role.id} value={role.name}>
+                        {role.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -691,10 +715,12 @@ function Employees() {
       <Modal isOpen={showAddModal} onClose={closeAddModal} title="Add Employee">
         <EmployeeForm
           departments={departments}
+          availableRoles={availableRoles}
           formData={formData}
           formError={formError}
           loading={formLoading}
           onChange={handleFormChange}
+          onRoleChange={handleRoleChange}
           onSubmit={handleAddEmployee}
           submitLabel="Add Employee"
         />
@@ -703,10 +729,12 @@ function Employees() {
       <Modal isOpen={Boolean(editEmployee)} onClose={closeEditModal} title="Edit Employee">
         <EmployeeForm
           departments={departments}
+          availableRoles={availableRoles}
           formData={formData}
           formError={formError}
           loading={formLoading}
           onChange={handleFormChange}
+          onRoleChange={handleRoleChange}
           onSubmit={handleUpdateEmployee}
           submitLabel="Update Employee"
         />
