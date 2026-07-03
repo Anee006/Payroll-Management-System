@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
 import Attendance from './pages/Attendance'
 import AuditLogs from './pages/AuditLogs'
+import Notifications from './pages/Notifications'
 import Dashboard from './pages/Dashboard'
 import Departments from './pages/Departments'
 import Employees from './pages/Employees'
@@ -76,7 +77,7 @@ function App() {
         <Route
           path="/roles"
           element={
-            <ProtectedRoute permission="roles.manage">
+            <ProtectedRoute>
               <Roles />
             </ProtectedRoute>
           }
@@ -84,7 +85,7 @@ function App() {
         <Route
           path="/permissions"
           element={
-            <ProtectedRoute permission="roles.manage">
+            <ProtectedRoute>
               <Permissions />
             </ProtectedRoute>
           }
@@ -94,6 +95,14 @@ function App() {
           element={
             <ProtectedRoute>
               <AuditLogs />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <Notifications />
             </ProtectedRoute>
           }
         />

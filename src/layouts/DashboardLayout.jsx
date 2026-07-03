@@ -1,36 +1,24 @@
 import { useEffect, useState } from 'react'
-import {
-  Building2,
-  CalendarCheck,
-  CalendarOff,
-  FileText,
-  KeyRound,
-  LayoutDashboard,
-  Menu,
-  ShieldCheck,
-  UserCircle,
-  Users,
-  Wallet,
-  X,
-} from 'lucide-react'
+import { KeyRound, ShieldCheck, Menu, X } from 'lucide-react'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../services/supabaseClient'
 import useAuth from '../hooks/useAuth'
+import NotificationBell from '../components/NotificationBell'
 
 const navItems = [
-  { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-  { label: 'Employees', path: '/employees', icon: Users },
-  { label: 'Attendance', path: '/attendance', icon: CalendarCheck },
-  { label: 'Leave', path: '/leaves', icon: CalendarOff },
-  { label: 'Payroll', path: '/payroll', icon: Wallet },
-  { label: 'Departments', path: '/departments', icon: Building2 },
-  { label: 'Profile', path: '/profile', icon: UserCircle },
+  { label: 'Dashboard', path: '/dashboard', icon: '📊' },
+  { label: 'Employees', path: '/employees', icon: '👥' },
+  { label: 'Attendance', path: '/attendance', icon: '📅' },
+  { label: 'Leave', path: '/leaves', icon: '🏖️' },
+  { label: 'Payroll', path: '/payroll', icon: '💰' },
+  { label: 'Departments', path: '/departments', icon: '🏢' },
+  { label: 'Profile', path: '/profile', icon: '👤' },
 ]
 
 const settingsNavItems = [
   { label: 'Roles', path: '/roles', icon: ShieldCheck },
   { label: 'Permissions', path: '/permissions', icon: KeyRound },
-  { label: 'Audit Logs', path: '/audit-logs', icon: FileText },
+  { label: 'Audit Logs', path: '/audit-logs', icon: '📋' },
 ]
 
 function DashboardLayout({ title, children }) {
@@ -66,13 +54,7 @@ function DashboardLayout({ title, children }) {
 
   // Close sidebar on route change (mobile only)
   useEffect(() => {
-    const closeMobileSidebar = () => {
-      if (window.innerWidth < 768) {
-        setIsOpen(false)
-      }
-    }
-    // Use microtask to avoid synchronous setState in effect body
-    Promise.resolve().then(closeMobileSidebar)
+    if (isMobile) setIsOpen(false)
   }, [location.pathname])
 
   const handleLogout = async () => {
@@ -115,23 +97,20 @@ function DashboardLayout({ title, children }) {
         </div>
 
         <nav className="flex-1 space-y-1 px-3 py-5 overflow-y-auto">
-          {navItems.map((item) => {
-            const Icon = item.icon
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition ${
-                  isActivePath(item.path)
-                    ? 'bg-blue-600 text-white'
-                    : 'text-slate-200 hover:bg-white/10 hover:text-white'
-                }`}
-              >
-                <Icon className="h-4 w-4" strokeWidth={2} />
-                {item.label}
-              </NavLink>
-            )
-          })}
+          {navItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition ${
+                isActivePath(item.path)
+                  ? 'bg-blue-600 text-white'
+                  : 'text-slate-200 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              <span className="text-base">{item.icon}</span>
+              {item.label}
+            </NavLink>
+          ))}
 
           {/* Settings section divider */}
           <div className="mt-4 border-t border-white/10 pt-4">
@@ -139,7 +118,9 @@ function DashboardLayout({ title, children }) {
               SETTINGS
             </p>
             {settingsNavItems.map((item) => {
-              const Icon = item.icon
+              const isLucideIcon = typeof item.icon !== 'string'
+              const Icon = isLucideIcon ? item.icon : null
+
               return (
                 <NavLink
                   key={item.path}
@@ -150,7 +131,11 @@ function DashboardLayout({ title, children }) {
                       : 'text-slate-200 hover:bg-white/10 hover:text-white'
                   }`}
                 >
-                  <Icon className="h-4 w-4" strokeWidth={2.25} />
+                  {isLucideIcon ? (
+                    <Icon className="h-4 w-4" strokeWidth={2.25} />
+                  ) : (
+                    <span className="text-base">{item.icon}</span>
+                  )}
                   {item.label}
                 </NavLink>
               )
@@ -197,9 +182,12 @@ function DashboardLayout({ title, children }) {
             )}
             <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
           </div>
-          <div className="text-sm text-slate-600">
-            Signed in as{' '}
-            <span className="font-medium text-slate-900">{userLabel}</span>
+          <div className="flex items-center gap-3">
+            <NotificationBell />
+            <div className="text-sm text-slate-600">
+              Signed in as{' '}
+              <span className="font-medium text-slate-900">{userLabel}</span>
+            </div>
           </div>
         </header>
 
