@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { KeyRound, ShieldCheck } from 'lucide-react'
+import { KeyRound, ShieldCheck, Menu, X } from 'lucide-react'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../services/supabaseClient'
 import useAuth from '../hooks/useAuth'
@@ -25,7 +25,21 @@ function DashboardLayout({ title, children }) {
   const location = useLocation()
   const { session, userRole, roleName } = useAuth()
   const [userLabel, setUserLabel] = useState('User')
-  const [isOpen, setIsOpen] = useState(false)
+  const [isOpen, setIsOpen] = useState(true)
+  const [isMobile, setIsMobile] = useState(false)
+
+  // Detect mobile screen
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768
+      setIsMobile(mobile)
+      if (mobile) setIsOpen(false)
+      else setIsOpen(true)
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   useEffect(() => {
     const loadSession = async () => {
@@ -37,8 +51,9 @@ function DashboardLayout({ title, children }) {
     loadSession()
   }, [])
 
+  // Close sidebar on route change (mobile only)
   useEffect(() => {
-    setIsOpen(false)
+    if (isMobile) setIsOpen(false)
   }, [location.pathname])
 
   const handleLogout = async () => {
@@ -50,21 +65,10 @@ function DashboardLayout({ title, children }) {
 
   return (
     <div className="min-h-screen bg-slate-100">
-      <div className="fixed top-0 left-0 z-[60] flex h-16 items-center px-4 md:hidden">
-        <button
-          type="button"
-          onClick={() => setIsOpen(!isOpen)}
-          className="rounded-md bg-slate-800 p-2 text-white hover:bg-slate-700 transition"
-          aria-label="Toggle sidebar"
-        >
-          <span className="text-xl leading-none">☰</span>
-        </button>
-      </div>
-
       {/* Mobile overlay */}
-      {isOpen && (
+      {isOpen && isMobile && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
           onClick={() => setIsOpen(false)}
         />
       )}
@@ -73,11 +77,22 @@ function DashboardLayout({ title, children }) {
       <aside
         className={`fixed left-0 top-0 h-full w-64 bg-[#1e293b] text-white z-50 transition-transform duration-300 ease-in-out flex flex-col ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
-        } md:translate-x-0`}
+        }`}
       >
-        <div className="border-b border-white/10 px-6 py-5">
-          <h1 className="text-xl font-bold">PayrollPro</h1>
-          <p className="mt-1 text-sm text-slate-300">Management System</p>
+        {/* Sidebar header with close button */}
+        <div className="border-b border-white/10 px-6 py-5 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold">PayrollPro</h1>
+            <p className="mt-1 text-sm text-slate-300">Management System</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsOpen(false)}
+            className="rounded-md p-1.5 text-slate-400 hover:text-white hover:bg-white/10 transition"
+            aria-label="Close sidebar"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
         <nav className="flex-1 space-y-1 px-3 py-5 overflow-y-auto">
@@ -145,10 +160,27 @@ function DashboardLayout({ title, children }) {
         </div>
       </aside>
 
-      {/* Main content */}
-      <div className="md:ml-64 min-h-screen bg-white">
+      {/* Main content — margin shifts based on sidebar state */}
+      <div
+        className={`min-h-screen bg-white transition-[margin-left] duration-300 ease-in-out ${
+          isOpen && !isMobile ? 'ml-64' : 'ml-0'
+        }`}
+      >
         <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-8">
-          <h2 className="text-xl font-semibold text-slate-900 ml-12 md:ml-0">{title}</h2>
+          <div className="flex items-center gap-3">
+            {/* Hamburger toggle — always visible when sidebar is closed */}
+            {!isOpen && (
+              <button
+                type="button"
+                onClick={() => setIsOpen(true)}
+                className="rounded-md p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
+                aria-label="Open sidebar"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+            )}
+            <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
+          </div>
           <div className="text-sm text-slate-600">
             Signed in as{' '}
             <span className="font-medium text-slate-900">{userLabel}</span>
