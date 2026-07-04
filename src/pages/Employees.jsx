@@ -4,6 +4,7 @@ import Card from '../components/Card'
 import Modal from '../components/Modal'
 import Table from '../components/Table'
 import useAuth from '../hooks/useAuth'
+import { usePermissionContext } from '../hooks/usePermissionContext'
 import DashboardLayout from '../layouts/DashboardLayout'
 import {
   addEmployee,
@@ -212,7 +213,8 @@ function EmployeeForm({
 }
 
 function Employees() {
-  const { session, userRole, userEmployeeId } = useAuth()
+  const { session, userEmployeeId } = useAuth()
+  const { can } = usePermissionContext()
 
   const [employees, setEmployees] = useState([])
   const [departments, setDepartments] = useState([])
@@ -253,9 +255,8 @@ function Employees() {
 
   const currentEmployeeId = normalizeValue(currentEmployee?.id)
   const currentEmployeeCode = normalizeValue(currentEmployee?.employee_id)
-  const effectiveUserRole = normalizeValue(currentEmployee?.role || userRole)
-  const isAdmin = effectiveUserRole === 'admin'
-  const isManager = effectiveUserRole === 'manager'
+  const canManageEmployees = can('employees.create') || can('employees.edit')
+  const canViewAll = can('attendance.manage')
 
   const loadEmployeesPageData = async () => {
     try {
@@ -310,7 +311,7 @@ function Employees() {
   }, [])
 
   const visibleEmployees = useMemo(() => {
-    if (isAdmin) {
+    if (canViewAll) {
       return employees
     }
 
@@ -328,18 +329,18 @@ function Employees() {
         employeeRowId === signedInUserId ||
         employeeCode === signedInUserId
 
-      if (isManager) {
+      if (can('leave.approve')) {
         return isSelf || employeeRole === 'employee'
       }
 
       return isSelf
     })
   }, [
+    can,
+    canViewAll,
     currentEmployeeCode,
     currentEmployeeId,
     employees,
-    isAdmin,
-    isManager,
     signedInEmail,
     signedInEmployeeId,
     signedInUserId,
@@ -356,7 +357,7 @@ function Employees() {
         return false
       }
 
-      if (!isAdmin) {
+      if (!canManageEmployees) {
         return true
       }
 
@@ -387,7 +388,7 @@ function Employees() {
 
       return true
     })
-  }, [filters, isAdmin, searchQuery, visibleEmployees])
+  }, [canManageEmployees, filters, searchQuery, visibleEmployees])
 
   const selectedEmployeeForDelete = employees.find((employee) => employee.id === deleteConfirmId)
 
@@ -517,7 +518,9 @@ function Employees() {
     { key: 'role', label: 'Role' },
     { key: 'salary', label: 'Salary' },
     { key: 'joining_date', label: 'Joining Date' },
-    ...(isAdmin ? [{ key: 'actions', label: 'Actions' }] : []),
+    ...(can('employees.edit') || can('employees.delete')
+      ? [{ key: 'actions', label: 'Actions' }]
+      : []),
   ]
 
   const tableData = filteredEmployees.map((employee) => ({
@@ -528,22 +531,26 @@ function Employees() {
     role: employee.role,
     salary: formatSalary(employee.salary),
     joining_date: formatDate(employee.joining_date),
-    ...(isAdmin
+    ...(can('employees.edit') || can('employees.delete')
       ? {
           actions: (
             <div className="flex items-center gap-2">
-              <Button
-                label="Edit"
-                variant="secondary"
-                onClick={() => openEditModal(employee)}
-                className="px-3 py-1.5"
-              />
-              <Button
-                label="Delete"
-                variant="danger"
-                onClick={() => setDeleteConfirmId(employee.id)}
-                className="px-3 py-1.5"
-              />
+              {can('employees.edit') && (
+                <Button
+                  label="Edit"
+                  variant="secondary"
+                  onClick={() => openEditModal(employee)}
+                  className="px-3 py-1.5"
+                />
+              )}
+              {can('employees.delete') && (
+                <Button
+                  label="Delete"
+                  variant="danger"
+                  onClick={() => setDeleteConfirmId(employee.id)}
+                  className="px-3 py-1.5"
+                />
+              )}
             </div>
           ),
         }
@@ -561,14 +568,16 @@ function Employees() {
             </p>
           </div>
 
-          {isAdmin && (
+          {canManageEmployees && (
             <div className="flex flex-wrap gap-3">
               <Button
                 label={showFilters ? 'Hide Filters' : 'Filter Employees'}
                 variant="secondary"
                 onClick={() => setShowFilters((currentValue) => !currentValue)}
               />
-              <Button label="Add Employee" onClick={openAddModal} />
+              {can('employees.create') && (
+                <Button label="Add Employee" onClick={openAddModal} />
+              )}
             </div>
           )}
         </div>
@@ -588,7 +597,7 @@ function Employees() {
             />
           </div>
 
-          {isAdmin && showFilters && (
+          {canManageEmployees && showFilters && (
             <div className="mb-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
                 <div>
