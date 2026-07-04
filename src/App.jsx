@@ -21,7 +21,7 @@ function App() {
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute permission="dashboard.view">
               <Dashboard />
             </ProtectedRoute>
           }
@@ -29,7 +29,7 @@ function App() {
         <Route
           path="/employees"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute permission="employees.view">
               <Employees />
             </ProtectedRoute>
           }
@@ -37,7 +37,7 @@ function App() {
         <Route
           path="/attendance"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute permission="attendance.view">
               <Attendance />
             </ProtectedRoute>
           }
@@ -45,7 +45,7 @@ function App() {
         <Route
           path="/leaves"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute permission="leave.view">
               <Leaves />
             </ProtectedRoute>
           }
@@ -53,7 +53,7 @@ function App() {
         <Route
           path="/payroll"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute permission="payroll.view">
               <Payroll />
             </ProtectedRoute>
           }
@@ -61,7 +61,7 @@ function App() {
         <Route
           path="/departments"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute permission="departments.view">
               <Departments />
             </ProtectedRoute>
           }
@@ -93,7 +93,7 @@ function App() {
         <Route
           path="/audit-logs"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute permission="audit.view">
               <AuditLogs />
             </ProtectedRoute>
           }

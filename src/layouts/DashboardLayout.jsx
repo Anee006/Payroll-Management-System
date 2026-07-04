@@ -16,28 +16,30 @@ import {
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../services/supabaseClient'
 import useAuth from '../hooks/useAuth'
+import { usePermissionContext } from '../hooks/usePermissionContext'
 import NotificationBell from '../components/NotificationBell'
 
 const navItems = [
-  { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-  { label: 'Employees', path: '/employees', icon: Users },
-  { label: 'Attendance', path: '/attendance', icon: CalendarCheck },
-  { label: 'Leave', path: '/leaves', icon: CalendarOff },
-  { label: 'Payroll', path: '/payroll', icon: Wallet },
-  { label: 'Departments', path: '/departments', icon: Building2 },
-  { label: 'Profile', path: '/profile', icon: UserCircle },
+  { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, permission: 'dashboard.view' },
+  { label: 'Employees', path: '/employees', icon: Users, permission: 'employees.view' },
+  { label: 'Attendance', path: '/attendance', icon: CalendarCheck, permission: 'attendance.view' },
+  { label: 'Leave', path: '/leaves', icon: CalendarOff, permission: 'leave.view' },
+  { label: 'Payroll', path: '/payroll', icon: Wallet, permission: 'payroll.view' },
+  { label: 'Departments', path: '/departments', icon: Building2, permission: 'departments.view' },
+  { label: 'Profile', path: '/profile', icon: UserCircle, permission: null },
 ]
 
 const settingsNavItems = [
-  { label: 'Roles', path: '/roles', icon: ShieldCheck },
-  { label: 'Permissions', path: '/permissions', icon: KeyRound },
-  { label: 'Audit Logs', path: '/audit-logs', icon: FileText },
+  { label: 'Roles', path: '/roles', icon: ShieldCheck, permission: 'roles.manage' },
+  { label: 'Permissions', path: '/permissions', icon: KeyRound, permission: 'roles.manage' },
+  { label: 'Audit Logs', path: '/audit-logs', icon: FileText, permission: 'audit.view' },
 ]
 
 function DashboardLayout({ title, children }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { session, userRole, roleName } = useAuth()
+  const { can, permissionsLoading, refreshPermissions } = usePermissionContext()
   const [userLabel, setUserLabel] = useState('User')
   const [isOpen, setIsOpen] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
@@ -65,15 +67,16 @@ function DashboardLayout({ title, children }) {
     loadSession()
   }, [])
 
-  // Close sidebar on route change (mobile only)
+  // Refresh permissions and close sidebar on route change
   useEffect(() => {
-    const closeMobileSidebar = () => {
+    // Re-fetch permissions from DB so admin changes take effect immediately
+    Promise.resolve().then(() => {
+      refreshPermissions()
       if (window.innerWidth < 768) {
         setIsOpen(false)
       }
-    }
-    Promise.resolve().then(closeMobileSidebar)
-  }, [location.pathname])
+    })
+  }, [location.pathname, refreshPermissions])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -81,6 +84,15 @@ function DashboardLayout({ title, children }) {
   }
 
   const isActivePath = (path) => location.pathname === path
+
+  // Filter nav items by permission (show all while permissions are loading)
+  const visibleNavItems = permissionsLoading
+    ? navItems
+    : navItems.filter((item) => !item.permission || can(item.permission))
+
+  const visibleSettingsItems = permissionsLoading
+    ? []
+    : settingsNavItems.filter((item) => can(item.permission))
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -115,7 +127,7 @@ function DashboardLayout({ title, children }) {
         </div>
 
         <nav className="flex-1 space-y-1 px-3 py-5 overflow-y-auto">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon
             return (
               <NavLink
@@ -133,29 +145,31 @@ function DashboardLayout({ title, children }) {
             )
           })}
 
-          {/* Settings section divider */}
-          <div className="mt-4 border-t border-white/10 pt-4">
-            <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
-              SETTINGS
-            </p>
-            {settingsNavItems.map((item) => {
-              const Icon = item.icon
-              return (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition ${
-                    isActivePath(item.path)
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-200 hover:bg-white/10 hover:text-white'
-                  }`}
-                >
-                  <Icon className="h-4 w-4" strokeWidth={2.25} />
-                  {item.label}
-                </NavLink>
-              )
-            })}
-          </div>
+          {/* Settings section — only show if user has at least one settings permission */}
+          {visibleSettingsItems.length > 0 && (
+            <div className="mt-4 border-t border-white/10 pt-4">
+              <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                SETTINGS
+              </p>
+              {visibleSettingsItems.map((item) => {
+                const Icon = item.icon
+                return (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition ${
+                      isActivePath(item.path)
+                        ? 'bg-blue-600 text-white'
+                        : 'text-slate-200 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" strokeWidth={2.25} />
+                    {item.label}
+                  </NavLink>
+                )
+              })}
+            </div>
+          )}
         </nav>
 
         {/* User info */}

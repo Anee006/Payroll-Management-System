@@ -5,6 +5,7 @@ import Card from '../components/Card'
 import Modal from '../components/Modal'
 import Table from '../components/Table'
 import useAuth from '../hooks/useAuth'
+import { usePermissionContext } from '../hooks/usePermissionContext'
 import DashboardLayout from '../layouts/DashboardLayout'
 import {
   getAllAttendance,
@@ -553,14 +554,14 @@ function AdminView() {
 // ─── Main Attendance Page ───────────────────────────────────────────────────
 
 function Attendance() {
-  const { session, userRole, userEmployeeId } = useAuth()
+  const { session, userEmployeeId } = useAuth()
+  const { can } = usePermissionContext()
 
   const [employeeId, setEmployeeId] = useState(null)
   const [loadingEmployee, setLoadingEmployee] = useState(true)
   const [employeeError, setEmployeeError] = useState('')
 
-  const effectiveRole = userRole?.toLowerCase?.() || ''
-  const isAdmin = effectiveRole === 'admin'
+  const isAdmin = can('attendance.manage')
 
   // For non-admin users, resolve their employee record via multiple fallbacks
   useEffect(() => {

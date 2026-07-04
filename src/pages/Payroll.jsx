@@ -5,6 +5,7 @@ import Modal from '../components/Modal'
 import Payslip from '../components/Payslip'
 import Table from '../components/Table'
 import useAuth from '../hooks/useAuth'
+import { usePermissionContext } from '../hooks/usePermissionContext'
 import DashboardLayout from '../layouts/DashboardLayout'
 import {
   getAllEmployees,
@@ -557,10 +558,10 @@ function EmployeeView({ employee, payrollIdentifiers }) {
 }
 
 function Payroll() {
-  const { session, userRole, userEmployeeId } = useAuth()
+  const { session, userEmployeeId } = useAuth()
+  const { can } = usePermissionContext()
 
   const [employee, setEmployee] = useState(null)
-  const [resolvedRole, setResolvedRole] = useState(null)
   const [loadingEmployee, setLoadingEmployee] = useState(true)
   const [employeeError, setEmployeeError] = useState('')
 
@@ -610,15 +611,11 @@ function Payroll() {
         if (foundEmployee) {
           if (isMounted) {
             setEmployee(foundEmployee)
-            setResolvedRole((foundEmployee.role || userRole || '').toLowerCase())
             setEmployeeError('')
           }
           return
         }
 
-        if (isMounted) {
-          setResolvedRole((userRole || '').toLowerCase())
-        }
 
         throw new Error(
           'No employee record found linked to your account. Please contact your administrator.',
@@ -626,7 +623,6 @@ function Payroll() {
       } catch (err) {
         if (isMounted) {
           setEmployeeError(err.message)
-          setResolvedRole((userRole || '').toLowerCase())
         }
       } finally {
         if (isMounted) {
@@ -640,10 +636,9 @@ function Payroll() {
     return () => {
       isMounted = false
     }
-  }, [session, userEmployeeId, userRole])
+  }, [session, userEmployeeId])
 
-  const effectiveRole = resolvedRole || (userRole || '').toLowerCase()
-  const isAdmin = effectiveRole === 'admin'
+  const isAdmin = can('payroll.manage')
 
   const payrollIdentifiers = useMemo(
     () =>

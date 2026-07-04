@@ -8,35 +8,46 @@ export function usePermissions() {
   const [permissionsLoading, setPermissionsLoading] = useState(true)
   const prevUserIdRef = useRef(null)
 
-  useEffect(() => {
+  const loadPermissions = useCallback(async () => {
     const userId = session?.user?.id
+    if (!userId) {
+      setPermissions([])
+      setPermissionsLoading(false)
+      return
+    }
+    try {
+      const result = await getMyPermissions(userId)
+      setPermissions(result.map((p) => p.name))
+    } catch {
+      setPermissions([])
+    } finally {
+      setPermissionsLoading(false)
+    }
+  }, [session])
+
+  // Load permissions on login / session change
+  useEffect(() => {
     let cancelled = false
 
-    async function loadPermissions() {
-      if (!userId) {
-        return { perms: [], done: true }
-      }
-      try {
-        const result = await getMyPermissions(userId)
-        return { perms: result.map((p) => p.name), done: true }
-      } catch {
-        return { perms: [], done: true }
-      }
-    }
-
-    loadPermissions().then(({ perms, done }) => {
-      if (!cancelled && done) {
-        setPermissions(perms)
-        setPermissionsLoading(false)
+    // Use microtask to avoid synchronous setState in effect body
+    Promise.resolve().then(() => {
+      if (!cancelled) {
+        loadPermissions()
       }
     })
 
-    prevUserIdRef.current = userId
+    prevUserIdRef.current = session?.user?.id
 
     return () => {
       cancelled = true
     }
-  }, [session])
+  }, [loadPermissions, session])
+
+  // Expose a refresh function so the Permissions page (or any admin action)
+  // can force a re-fetch of the current user's permissions from the DB.
+  const refreshPermissions = useCallback(() => {
+    return loadPermissions()
+  }, [loadPermissions])
 
   // Helper: check if user has a specific permission
   const can = useCallback(
@@ -50,5 +61,5 @@ export function usePermissions() {
     [permissions],
   )
 
-  return { permissions, permissionsLoading, can, canAny }
+  return { permissions, permissionsLoading, can, canAny, refreshPermissions }
 }

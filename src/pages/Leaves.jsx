@@ -6,6 +6,7 @@ import Modal from '../components/Modal'
 import Table from '../components/Table'
 import Toast from '../components/Toast'
 import useAuth from '../hooks/useAuth'
+import { usePermissionContext } from '../hooks/usePermissionContext'
 import DashboardLayout from '../layouts/DashboardLayout'
 import {
   applyLeave,
@@ -724,6 +725,7 @@ function AdminView({ session, showToast, approverEmployeeId }) {
 
 function Leaves() {
   const { session, userRole, userEmployeeId } = useAuth()
+  const { can } = usePermissionContext()
 
   const [employeeId, setEmployeeId] = useState(null)
   const [resolvedRole, setResolvedRole] = useState(null)
@@ -825,13 +827,13 @@ function Leaves() {
     }
   }, [session, userEmployeeId, userRole])
 
-  const effectiveRole = resolvedRole || (userRole || '').toLowerCase()
-  const isAdmin = effectiveRole === 'admin'
-  const isManager = effectiveRole === 'manager'
+  const isAdmin = can('attendance.manage')
+  const isManager = can('leave.approve') && !isAdmin
 
   const getSubtitle = () => {
     if (isAdmin) return 'Review, approve, or reject employee leave requests.'
-    if (isManager) return 'Apply for leave, manage your requests, and approve or reject team leaves.'
+    if (isManager)
+      return 'Apply for leave, manage your requests, and approve or reject team leaves.'
     return 'Apply for leave, track your requests, and view status.'
   }
 
