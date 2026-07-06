@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { logAction } from './auditService'
 
 // Get all roles
 export async function getAllRoles() {
@@ -69,6 +70,9 @@ export async function createRole(name, description = '') {
     .insert([{ name, description }])
     .select()
   if (error) throw error
+
+  await logAction('Created Role', 'roles', data[0].id, { name })
+
   return data[0]
 }
 
@@ -80,6 +84,9 @@ export async function updateRole(id, updates) {
     .eq('id', id)
     .select()
   if (error) throw error
+
+  await logAction('Updated Role', 'roles', id, { name: updates.name })
+
   return data[0]
 }
 

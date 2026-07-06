@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { logAction } from './auditService'
 
 export async function getAllEmployees() {
   const { data, error } = await supabase
@@ -28,6 +29,11 @@ export async function addEmployee(employeeData) {
     .select()
 
   if (error) throw error
+
+  await logAction('Created Employee', 'employees', data[0].id, {
+    name: data[0].name,
+  })
+
   return data[0]
 }
 
@@ -49,6 +55,8 @@ export async function deleteEmployee(id) {
     .eq('id', id)
 
   if (error) throw error
+
+  await logAction('Deleted Employee', 'employees', id)
 }
 
 export async function getAllDepartments() {
