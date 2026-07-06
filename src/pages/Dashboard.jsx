@@ -23,11 +23,13 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import ActivityTimeline from '../components/ActivityTimeline'
 import Card from '../components/Card'
 import SkeletonCard from '../components/SkeletonCard'
 import Table from '../components/Table'
 import useAuth from '../hooks/useAuth'
 import DashboardLayout from '../layouts/DashboardLayout'
+import { getAllAuditLogs } from '../services/auditService'
 import {
   getAttendanceTrend,
   getDashboardStats,
@@ -123,6 +125,8 @@ function AdminDashboard() {
   const [payrollTrend, setPayrollTrend] = useState([])
   const [recentLeaves, setRecentLeaves] = useState([])
   const [todayAttendance, setTodayAttendance] = useState([])
+  const [recentActivity, setRecentActivity] = useState([])
+  const [activityLoading, setActivityLoading] = useState(true)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -161,6 +165,15 @@ function AdminDashboard() {
     }
 
     loadDashboard()
+
+    getAllAuditLogs(8)
+      .then((logs) => {
+        if (isMounted) setRecentActivity(logs)
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (isMounted) setActivityLoading(false)
+      })
 
     return () => {
       isMounted = false
@@ -338,6 +351,11 @@ function AdminDashboard() {
         <Card title="Today's Attendance">
           <Table columns={attendanceColumns} data={attendanceTableData} />
         </Card>
+      </div>
+
+      <div className="rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200 mt-6">
+        <h2 className="text-base font-semibold text-gray-700 mb-4">Recent Activity</h2>
+        <ActivityTimeline activities={recentActivity} loading={activityLoading} />
       </div>
     </div>
   )
