@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { sendNotification } from './notificationService'
 
 const payrollWithEmployeeSelect =
   '*, employees(id, name, employee_id, joining_date, departments(department_name))'
@@ -101,6 +102,33 @@ export async function generatePayroll(
     .select()
 
   if (error) throw error
+
+  // Send notification to the employee
+  try {
+    const { data: emp } = await supabase
+      .from('employees')
+      .select('email')
+      .eq('id', employeeId)
+      .single()
+    if (emp?.email) {
+      const { data: empUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', emp.email)
+        .single()
+      if (empUser) {
+        await sendNotification(
+          empUser.id,
+          'Payroll Generated',
+          `Your payslip for ${month} is ready.`,
+          'payroll',
+        )
+      }
+    }
+  } catch {
+    // Don't fail payroll if notification fails
+  }
+
   return data[0]
 }
 

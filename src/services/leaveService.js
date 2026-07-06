@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { sendNotification } from './notificationService'
 
 // Get leave requests for an employee
 export async function getLeavesByEmployee(employeeId) {
@@ -16,7 +17,7 @@ export async function getLeavesByEmployee(employeeId) {
 export async function getAllLeaves() {
   const { data, error } = await supabase
     .from('leave_requests')
-    .select('*, employees!employee_id(name, employee_id, role)')
+    .select('*, employees!employee_id(name, employee_id, email, role)')
     .order('created_at', { ascending: false })
   if (error) throw error
   return data
@@ -53,6 +54,36 @@ export async function updateLeaveStatus(leaveId, status, approvedBy) {
       'Update was blocked — you may not have permission to approve/reject this leave. Please contact your administrator.',
     )
   }
+
+  // Send notification to the employee who applied for leave
+  try {
+    const { data: leaveData } = await supabase
+      .from('leave_requests')
+      .select('employee_id, employees(email)')
+      .eq('id', leaveId)
+      .single()
+
+    if (leaveData?.employees?.email) {
+      const { data: receiverUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', leaveData.employees.email)
+        .single()
+
+      if (receiverUser) {
+        await sendNotification(
+          receiverUser.id,
+          status === 'Approved' ? 'Leave Approved' : 'Leave Rejected',
+          `Your leave request has been ${status.toLowerCase()}.`,
+          'leave',
+          leaveId,
+        )
+      }
+    }
+  } catch {
+    // Don't fail the leave update if notification fails
+  }
+
   return data[0]
 }
 
