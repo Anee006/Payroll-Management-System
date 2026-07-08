@@ -138,3 +138,47 @@ export async function deletePayroll(id) {
 
   if (error) throw error
 }
+
+// Submit payroll for approval (Draft → Pending Approval)
+export async function submitPayrollForApproval(payrollId) {
+  const { data, error } = await supabase
+    .from('payroll')
+    .update({ approval_status: 'Pending Approval' })
+    .eq('id', payrollId)
+    .eq('approval_status', 'Draft')
+    .select()
+  if (error) throw error
+  if (!data.length) throw new Error('Payroll is not in Draft status')
+  return data[0]
+}
+
+// Approve payroll (Pending Approval → Approved)
+export async function approvePayroll(payrollId, approvedById) {
+  const { data, error } = await supabase
+    .from('payroll')
+    .update({
+      approval_status: 'Approved',
+      approved_by: approvedById,
+      approved_at: new Date().toISOString(),
+    })
+    .eq('id', payrollId)
+    .eq('approval_status', 'Pending Approval')
+    .select()
+  if (error) throw error
+  if (!data.length)
+    throw new Error('Payroll is not in Pending Approval status')
+  return data[0]
+}
+
+// Release payroll (Approved → Released)
+export async function releasePayroll(payrollId) {
+  const { data, error } = await supabase
+    .from('payroll')
+    .update({ approval_status: 'Released' })
+    .eq('id', payrollId)
+    .eq('approval_status', 'Approved')
+    .select()
+  if (error) throw error
+  if (!data.length) throw new Error('Payroll is not in Approved status')
+  return data[0]
+}
