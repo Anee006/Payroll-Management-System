@@ -4,19 +4,25 @@ import Card from '../components/Card'
 import Modal from '../components/Modal'
 import Payslip from '../components/Payslip'
 import Table from '../components/Table'
+import Toast from '../components/Toast'
 import useAuth from '../hooks/useAuth'
 import { usePermissionContext } from '../hooks/usePermissionContext'
 import DashboardLayout from '../layouts/DashboardLayout'
+import { logAction } from '../services/auditService'
+import { supabase } from '../services/supabaseClient'
 import {
   getAllEmployees,
   getEmployeeByEmail,
   getEmployeeById,
 } from '../services/employeeService'
 import {
+  approvePayroll,
   deletePayroll,
   generatePayroll,
   getAllPayroll,
   getPayrollByEmployeeIdentifiers,
+  releasePayroll,
+  submitPayrollForApproval,
 } from '../services/payrollService'
 import { formatCurrency } from '../utils/dateHelpers'
 
@@ -69,6 +75,7 @@ function AdminView() {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [payslipTarget, setPayslipTarget] = useState(null)
+  const [toast, setToast] = useState(null)
 
   const employeeMap = useMemo(() => buildEmployeeMap(employees), [employees])
 
@@ -202,6 +209,52 @@ function AdminView() {
     return records.filter((record) => record.month === monthFilter)
   }, [monthFilter, records])
 
+  const statusBadge = (status) => {
+    const styles = {
+      Draft: 'bg-gray-100 text-gray-700',
+      'Pending Approval': 'bg-yellow-100 text-yellow-700',
+      Approved: 'bg-blue-100 text-blue-700',
+      Released: 'bg-green-100 text-green-700',
+    }
+    return (
+      <span
+        className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${styles[status] || 'bg-gray-100 text-gray-600'}`}
+      >
+        {status}
+      </span>
+    )
+  }
+
+  const handleWorkflowAction = async (record, action) => {
+    try {
+      if (action === 'submit') {
+        await submitPayrollForApproval(record.id)
+        await logAction('Payroll Status Changed', 'payroll', record.id, {
+          new_status: 'Pending Approval',
+        })
+        setToast({ message: 'Submitted for approval', type: 'success' })
+      } else if (action === 'approve') {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+        await approvePayroll(record.id, session.user.id)
+        await logAction('Payroll Status Changed', 'payroll', record.id, {
+          new_status: 'Approved',
+        })
+        setToast({ message: 'Payroll approved', type: 'success' })
+      } else if (action === 'release') {
+        await releasePayroll(record.id)
+        await logAction('Payroll Status Changed', 'payroll', record.id, {
+          new_status: 'Released',
+        })
+        setToast({ message: 'Payroll released', type: 'success' })
+      }
+      await loadData()
+    } catch (err) {
+      setToast({ message: err.message, type: 'error' })
+    }
+  }
+
   const columns = [
     { key: 'employee', label: 'Employee' },
     { key: 'department', label: 'Dept' },
@@ -210,11 +263,46 @@ function AdminView() {
     { key: 'bonus', label: 'Bonus' },
     { key: 'deductions', label: 'Deductions' },
     { key: 'net', label: 'Net Salary' },
+    { key: 'status', label: 'Status' },
     { key: 'actions', label: 'Actions' },
   ]
 
   const tableData = filteredRecords.map((record) => {
     const employee = employeeMap[record.employee_id] || record.employees || {}
+    const approvalStatus = record.approval_status || 'Draft'
+
+    const workflowButtons = []
+    if (approvalStatus === 'Draft') {
+      workflowButtons.push(
+        <Button
+          key="submit"
+          label="Submit"
+          variant="secondary"
+          onClick={() => handleWorkflowAction(record, 'submit')}
+          className="px-2 py-1 text-xs"
+        />,
+      )
+    }
+    if (approvalStatus === 'Pending Approval') {
+      workflowButtons.push(
+        <Button
+          key="approve"
+          label="Approve"
+          onClick={() => handleWorkflowAction(record, 'approve')}
+          className="px-2 py-1 text-xs"
+        />,
+      )
+    }
+    if (approvalStatus === 'Approved') {
+      workflowButtons.push(
+        <Button
+          key="release"
+          label="Release"
+          onClick={() => handleWorkflowAction(record, 'release')}
+          className="px-2 py-1 text-xs bg-green-600 hover:bg-green-700"
+        />,
+      )
+    }
 
     return {
       id: record.id,
@@ -229,20 +317,24 @@ function AdminView() {
           {formatCurrency(getNetSalary(record))}
         </span>
       ),
+      status: statusBadge(approvalStatus),
       actions: (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           <Button
-            label="View Payslip"
+            label="Payslip"
             variant="secondary"
             onClick={() => setPayslipTarget({ record, employee })}
-            className="px-3 py-1.5"
+            className="px-2 py-1 text-xs"
           />
-          <Button
-            label="Delete"
-            variant="danger"
-            onClick={() => setDeleteTarget(record)}
-            className="px-3 py-1.5"
-          />
+          {workflowButtons}
+          {approvalStatus === 'Draft' && (
+            <Button
+              label="Delete"
+              variant="danger"
+              onClick={() => setDeleteTarget(record)}
+              className="px-2 py-1 text-xs"
+            />
+          )}
         </div>
       ),
     }
@@ -460,6 +552,14 @@ function AdminView() {
         employeeRecord={payslipTarget?.employee}
         onClose={() => setPayslipTarget(null)}
       />
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   )
 }
