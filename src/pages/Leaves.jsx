@@ -5,8 +5,8 @@ import Card from '../components/Card'
 import Modal from '../components/Modal'
 import Table from '../components/Table'
 import Toast from '../components/Toast'
+import WorkflowStatusBar from '../components/WorkflowStatusBar'
 import useAuth from '../hooks/useAuth'
-import { usePermissionContext } from '../hooks/usePermissionContext'
 import DashboardLayout from '../layouts/DashboardLayout'
 import {
   applyLeave,
@@ -21,6 +21,14 @@ import {
   getEmployeeById,
 } from '../services/employeeService'
 import { calculateLeaveDays, formatDate } from '../utils/dateHelpers'
+
+const LEAVE_STEPS = ['Applied', 'Pending Review', 'Approved', 'Closed']
+
+const leaveStepMap = {
+  Pending: 'Pending Review',
+  Approved: 'Approved',
+  Rejected: 'Closed',
+}
 
 const inputClass =
   'w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'
@@ -148,6 +156,7 @@ function EmployeeLeavePanel({ employeeId, showToast }) {
     { key: 'days', label: 'Days' },
     { key: 'reason', label: 'Reason' },
     { key: 'status', label: 'Status' },
+    { key: 'workflow', label: 'Progress' },
     { key: 'actions', label: 'Action' },
   ]
 
@@ -166,6 +175,15 @@ function EmployeeLeavePanel({ employeeId, showToast }) {
         label={leave.status}
         color={statusColors[leave.status] || 'blue'}
       />
+    ),
+    workflow: (
+      <div className="min-w-[180px]">
+        <WorkflowStatusBar
+          steps={LEAVE_STEPS}
+          currentStep={leaveStepMap[leave.status] ?? 'Applied'}
+          type="leave"
+        />
+      </div>
     ),
     actions:
       leave.status === 'Pending' ? (
@@ -559,6 +577,7 @@ function AdminApprovalPanel({ session, showToast, approverEmployeeId, approverRo
     { key: 'days', label: 'Days' },
     { key: 'reason', label: 'Reason' },
     { key: 'status', label: 'Status' },
+    { key: 'workflow', label: 'Progress' },
     { key: 'decidedBy', label: 'Decided By' },
   ]
 
@@ -577,6 +596,15 @@ function AdminApprovalPanel({ session, showToast, approverEmployeeId, approverRo
         label={leave.status}
         color={statusColors[leave.status] || 'blue'}
       />
+    ),
+    workflow: (
+      <div className="min-w-[180px]">
+        <WorkflowStatusBar
+          steps={LEAVE_STEPS}
+          currentStep={leaveStepMap[leave.status] ?? 'Applied'}
+          type="leave"
+        />
+      </div>
     ),
     decidedBy: leave.approved_by ? (employeeMap[leave.approved_by]?.name || leave.approved_by) : '—',
   }))
@@ -725,7 +753,6 @@ function AdminView({ session, showToast, approverEmployeeId }) {
 
 function Leaves() {
   const { session, userRole, userEmployeeId } = useAuth()
-  const { can } = usePermissionContext()
 
   const [employeeId, setEmployeeId] = useState(null)
   const [resolvedRole, setResolvedRole] = useState(null)
@@ -827,8 +854,8 @@ function Leaves() {
     }
   }, [session, userEmployeeId, userRole])
 
-  const isAdmin = can('attendance.manage')
-  const isManager = can('leave.approve') && !isAdmin
+  const isAdmin = resolvedRole === 'admin'
+  const isManager = resolvedRole === 'manager'
 
   const getSubtitle = () => {
     if (isAdmin) return 'Review, approve, or reject employee leave requests.'

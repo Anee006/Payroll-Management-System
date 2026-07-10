@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import DashboardLayout from '../layouts/DashboardLayout'
 import {
   Bell,
   Leaf,
@@ -52,14 +53,17 @@ export default function Notifications() {
 
   if (loading) {
     return (
-      <div className="p-6 animate-pulse space-y-3">
-        {[1,2,3].map(i => <div key={i} className="h-20 bg-gray-100 rounded-xl" />)}
-      </div>
+      <DashboardLayout title="Notifications">
+        <div className="p-6 animate-pulse space-y-3">
+          {[1,2,3].map(i => <div key={i} className="h-20 bg-gray-100 rounded-xl" />)}
+        </div>
+      </DashboardLayout>
     )
   }
 
   return (
-    <div className="p-6 max-w-3xl">
+    <DashboardLayout title="Notifications">
+    <div className="max-w-3xl">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Notifications</h1>
@@ -130,5 +134,6 @@ export default function Notifications() {
         )}
       </div>
     </div>
+    </DashboardLayout>
   )
 }

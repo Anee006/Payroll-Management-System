@@ -1,3 +1,5 @@
+import { Inbox } from 'lucide-react'
+
 function Table({ columns = [], data = [] }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
@@ -30,9 +32,10 @@ function Table({ columns = [], data = [] }) {
             <tr>
               <td
                 colSpan={columns.length || 1}
-                className="px-4 py-8 text-center text-sm text-slate-500"
+                className="px-4 py-12 text-center text-sm text-slate-400"
               >
-                No records found.
+                <Inbox className="mx-auto mb-2 h-8 w-8 stroke-slate-300" />
+                <p>No records found</p>
               </td>
             </tr>
           )}

@@ -1,5 +1,8 @@
 import Button from './Button'
+import WorkflowStatusBar from './WorkflowStatusBar'
 import { formatCurrency, formatDate } from '../utils/dateHelpers'
+
+const PAYROLL_STEPS = ['Draft', 'Pending Approval', 'Approved', 'Released']
 
 const getDepartmentName = (employeeRecord) =>
   employeeRecord?.departments?.department_name ||
@@ -80,6 +83,18 @@ function Payslip({ payrollRecord, employeeRecord, onClose }) {
         </div>
 
         <div className="p-6">
+          {/* Workflow Status */}
+          <div className="mb-6 rounded-lg bg-slate-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">
+              Approval Status
+            </p>
+            <WorkflowStatusBar
+              steps={PAYROLL_STEPS}
+              currentStep={payrollRecord.approval_status ?? 'Draft'}
+              type="payroll"
+            />
+          </div>
+
           <div className="rounded-lg border border-slate-200 bg-white p-6">
             <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-start sm:justify-between">
               <div>

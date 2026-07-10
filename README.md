@@ -51,42 +51,60 @@ Three distinct user roles — **Admin**, **Manager**, and **Employee** — each 
 
 ```
 src/
-├── components/          # Reusable UI components
-│   ├── Badge.jsx        # Status badges with color variants
-│   ├── Button.jsx       # Primary, secondary, danger button variants
-│   ├── Card.jsx         # Content container card
-│   ├── Modal.jsx        # Overlay dialog
-│   ├── Payslip.jsx      # Payslip viewer with PDF export
-│   ├── ProtectedRoute.jsx  # Auth-guarded route wrapper
-│   ├── SkeletonCard.jsx # Loading placeholder
-│   ├── Table.jsx        # Sortable data table
-│   └── Toast.jsx        # Notification toasts
-├── hooks/               # Custom React hooks
-│   ├── AuthContext.js   # Auth context definition
-│   ├── AuthProvider.jsx # Session + role provider
-│   └── useAuth.jsx      # Auth consumer hook
+├── components/              # Reusable UI components
+│   ├── ActivityTimeline.jsx # Dashboard activity feed
+│   ├── Badge.jsx            # Status badges with color variants
+│   ├── Button.jsx           # Primary, secondary, danger button variants
+│   ├── Card.jsx             # Content container card
+│   ├── Modal.jsx            # Overlay dialog
+│   ├── NotificationBell.jsx # Header notification bell with dropdown
+│   ├── Payslip.jsx          # Payslip viewer with PDF export
+│   ├── PermissionGuard.jsx  # Permission-based content guard
+│   ├── PermissionMatrix.jsx # Checkbox grid for role-permission assignment
+│   ├── ProtectedRoute.jsx   # Auth + permission guarded route wrapper
+│   ├── RoleCard.jsx         # Role display card with permission count
+│   ├── SkeletonCard.jsx     # Loading placeholder
+│   ├── Table.jsx            # Data table with empty state
+│   ├── Toast.jsx            # Notification toasts
+│   └── WorkflowStatusBar.jsx # Horizontal workflow stepper
+├── contexts/                # React contexts
+│   ├── PermissionContext.jsx # Permission provider
+│   └── PermissionContextDef.js
+├── hooks/                   # Custom React hooks
+│   ├── AuthContext.js       # Auth context definition
+│   ├── AuthProvider.jsx     # Session + role provider
+│   ├── useAuth.jsx          # Auth consumer hook
+│   ├── usePermissionContext.js # Permission context hook
+│   └── usePermissions.js    # Permission fetching + can()/canAny()
 ├── layouts/
-│   └── DashboardLayout.jsx  # Sidebar navigation layout
-├── pages/               # Route-level page components
-│   ├── Dashboard.jsx    # Admin & employee dashboards
-│   ├── Employees.jsx    # Employee CRUD management
-│   ├── Attendance.jsx   # Attendance marking & history
-│   ├── Leaves.jsx       # Leave application & approval
-│   ├── Payroll.jsx      # Payroll generation & payslips
-│   ├── Departments.jsx  # Department overview
-│   ├── Profile.jsx      # Employee profile & stats
-│   └── Login.jsx        # Authentication page
-├── services/            # Supabase API layer
+│   └── DashboardLayout.jsx  # Permission-driven sidebar layout
+├── pages/                   # Route-level page components
+│   ├── AuditLogs.jsx        # Audit log viewer with module filters
+│   ├── Dashboard.jsx        # Admin & employee dashboards
+│   ├── Employees.jsx        # Employee CRUD management
+│   ├── Attendance.jsx       # Attendance marking & history
+│   ├── Leaves.jsx           # Leave application & approval
+│   ├── Payroll.jsx          # Payroll generation with workflow
+│   ├── Departments.jsx      # Department overview
+│   ├── Notifications.jsx    # Full notification page with filters
+│   ├── Permissions.jsx      # Permission matrix management
+│   ├── Profile.jsx          # Employee profile & stats
+│   ├── Roles.jsx            # Role management (CRUD)
+│   └── Login.jsx            # Authentication page
+├── services/                # Supabase API layer
 │   ├── supabaseClient.js
 │   ├── authService.js
+│   ├── auditService.js
 │   ├── employeeService.js
 │   ├── attendanceService.js
 │   ├── leaveService.js
+│   ├── notificationService.js
 │   ├── payrollService.js
+│   ├── permissionService.js
 │   ├── departmentService.js
 │   └── dashboardService.js
 └── utils/
-    └── dateHelpers.js   # Date & currency formatting utilities
+    └── dateHelpers.js       # Date & currency formatting utilities
 ```
 
 ---
@@ -157,8 +175,13 @@ The application relies on the following Supabase tables and views:
 | `employees` | Employee records (name, email, role, salary, department) |
 | `attendance` | Daily attendance records with status and working hours |
 | `leave_requests` | Leave applications with approval workflow |
-| `payroll` | Monthly payroll records with salary breakdown |
+| `payroll` | Monthly payroll records with salary breakdown and approval workflow |
 | `departments` | Department definitions |
+| `roles` | Dynamic role definitions (Admin, Manager, Employee, custom) |
+| `permissions` | Granular permission definitions (19 across 8 modules) |
+| `role_permissions` | Many-to-many mapping of roles to permissions |
+| `audit_logs` | Automatic action logging with user, module, and details |
+| `notifications` | In-app notification delivery with read/unread status |
 
 ### Views
 
@@ -177,6 +200,41 @@ All tables are protected with Supabase RLS policies that enforce role-based acce
 
 ---
 
+## Recent Enhancements
+
+### RBAC System
+- Dynamic roles stored in database (not hardcoded)
+- 19 granular permissions across 8 modules
+- Permission matrix UI — toggle permissions per role with instant save
+- Sidebar navigation is fully permission-driven
+- All pages protected by specific permissions
+
+### Notifications
+- In-app notifications for leave approvals, payroll generation
+- Bell icon with unread count badge
+- Full notifications page with filter (All/Unread/Read)
+- Mark as read / Mark all as read functionality
+
+### Audit Logs
+- Every key action is automatically logged
+- Database triggers for payroll and leave events
+- Frontend logging for employee CRUD and role changes
+- Audit log viewer with module filter (Admin only)
+- Activity timeline on Admin dashboard
+
+### Payroll Workflow
+- 4-step approval workflow: Draft → Pending Approval → Approved → Released
+- Visual workflow status bar in payslip view
+- Status badges with color-coded indicators
+- Workflow action buttons (Submit / Approve / Release) per record
+
+### Leave Workflow Timeline
+- Visual workflow progress bar for each leave request
+- 4-step flow: Applied → Pending Review → Approved → Closed
+- Visible in both employee and admin leave tables
+
+---
+
 ## License
 
-This project is developed as part of an training program.
+This project is developed as part of a training program.

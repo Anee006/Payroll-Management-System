@@ -5,7 +5,6 @@ import Card from '../components/Card'
 import Modal from '../components/Modal'
 import Table from '../components/Table'
 import useAuth from '../hooks/useAuth'
-import { usePermissionContext } from '../hooks/usePermissionContext'
 import DashboardLayout from '../layouts/DashboardLayout'
 import {
   getAllAttendance,
@@ -554,87 +553,86 @@ function AdminView() {
 // ─── Main Attendance Page ───────────────────────────────────────────────────
 
 function Attendance() {
-  const { session, userEmployeeId } = useAuth()
-  const { can } = usePermissionContext()
+  const { session, userRole, userEmployeeId } = useAuth()
 
   const [employeeId, setEmployeeId] = useState(null)
+  const [resolvedRole, setResolvedRole] = useState(null)
   const [loadingEmployee, setLoadingEmployee] = useState(true)
   const [employeeError, setEmployeeError] = useState('')
 
-  const isAdmin = can('attendance.manage')
-
-  // For non-admin users, resolve their employee record via multiple fallbacks
+  // Resolve the employee record AND effective role from the employees table
   useEffect(() => {
-    if (isAdmin) {
-      setLoadingEmployee(false)
-      return
-    }
-
     let isMounted = true
 
     async function resolveEmployee() {
       try {
         const email = session?.user?.email
         const authUserId = session?.user?.id
+        let foundEmployee = null
 
         // Strategy 1: Look up by email
         if (email) {
-          const employee = await getEmployeeByEmail(email)
-          if (employee) {
-            if (isMounted) {
-              setEmployeeId(employee.id)
-              setEmployeeError('')
-            }
-            return
-          }
+          foundEmployee = await getEmployeeByEmail(email)
         }
 
         // Strategy 2: Use userEmployeeId from auth context directly
-        if (userEmployeeId) {
+        if (!foundEmployee && userEmployeeId) {
           try {
-            const employee = await getEmployeeById(userEmployeeId)
-            if (employee) {
-              if (isMounted) {
-                setEmployeeId(employee.id)
-                setEmployeeError('')
-              }
-              return
-            }
+            foundEmployee = await getEmployeeById(userEmployeeId)
           } catch {
             // ID didn't match, continue to fallback
           }
         }
 
         // Strategy 3: Fetch all employees and fuzzy-match
-        const allEmployees = await getAllEmployees()
-        const normalEmail = (email || '').trim().toLowerCase()
-        const normalAuthId = (authUserId || '').trim().toLowerCase()
-        const normalEmpId = (userEmployeeId || '').trim().toLowerCase()
+        if (!foundEmployee) {
+          const allEmployees = await getAllEmployees()
+          const normalEmail = (email || '').trim().toLowerCase()
+          const normalAuthId = (authUserId || '').trim().toLowerCase()
+          const normalEmpId = (userEmployeeId || '').trim().toLowerCase()
 
-        const match = allEmployees?.find((emp) => {
-          const empEmail = (emp.email || '').trim().toLowerCase()
-          const empRowId = (emp.id || '').trim().toLowerCase()
-          const empCode = (emp.employee_id || '').trim().toLowerCase()
+          foundEmployee =
+            allEmployees?.find((emp) => {
+              const empEmail = (emp.email || '').trim().toLowerCase()
+              const empRowId = (emp.id || '').trim().toLowerCase()
+              const empCode = (emp.employee_id || '').trim().toLowerCase()
 
-          return (
-            (normalEmail && empEmail === normalEmail) ||
-            (normalAuthId && (empRowId === normalAuthId || empCode === normalAuthId)) ||
-            (normalEmpId && (empRowId === normalEmpId || empCode === normalEmpId))
-          )
-        })
+              return (
+                (normalEmail && empEmail === normalEmail) ||
+                (normalAuthId &&
+                  (empRowId === normalAuthId ||
+                    empCode === normalAuthId)) ||
+                (normalEmpId &&
+                  (empRowId === normalEmpId || empCode === normalEmpId))
+              )
+            }) || null
+        }
 
-        if (match) {
+        if (foundEmployee) {
           if (isMounted) {
-            setEmployeeId(match.id)
+            setEmployeeId(foundEmployee.id)
+            setResolvedRole(
+              (foundEmployee.role || userRole || '').toLowerCase(),
+            )
             setEmployeeError('')
           }
           return
         }
 
-        throw new Error('No employee record found linked to your account. Please contact your administrator.')
+        // No employee record — still set role so admin view works
+        if (isMounted) {
+          setResolvedRole((userRole || '').toLowerCase())
+        }
+
+        throw new Error(
+          'No employee record found linked to your account. Please contact your administrator.',
+        )
       } catch (err) {
         if (isMounted) {
           setEmployeeError(err.message)
+          if (!resolvedRole) {
+            setResolvedRole((userRole || '').toLowerCase())
+          }
         }
       } finally {
         if (isMounted) {
@@ -648,7 +646,17 @@ function Attendance() {
     return () => {
       isMounted = false
     }
-  }, [isAdmin, session, userEmployeeId])
+  }, [session, userEmployeeId, userRole])
+
+  const isAdmin = resolvedRole === 'admin'
+  const isManager = resolvedRole === 'manager'
+
+  const getSubtitle = () => {
+    if (isAdmin) return 'View and manage attendance records for all employees.'
+    if (isManager)
+      return 'Mark your daily attendance and view team attendance overview.'
+    return 'Mark your daily attendance and view your history.'
+  }
 
   const renderContent = () => {
     if (loadingEmployee) {
@@ -659,7 +667,7 @@ function Attendance() {
       )
     }
 
-    if (employeeError) {
+    if (employeeError && !isAdmin && !isManager) {
       return (
         <div className="rounded-md bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           {employeeError}
@@ -671,6 +679,30 @@ function Attendance() {
       return <AdminView />
     }
 
+    if (isManager) {
+      return (
+        <>
+          {/* Manager's own attendance */}
+          <EmployeeView employeeId={employeeId} />
+
+          {/* Divider */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-slate-50 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Team Overview
+              </span>
+            </div>
+          </div>
+
+          {/* All employees overview */}
+          <AdminView />
+        </>
+      )
+    }
+
     return <EmployeeView employeeId={employeeId} />
   }
 
@@ -679,11 +711,7 @@ function Attendance() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Attendance</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {isAdmin
-              ? 'View and manage attendance records for all employees.'
-              : 'Mark your daily attendance and view your history.'}
-          </p>
+          <p className="mt-1 text-sm text-slate-500">{getSubtitle()}</p>
         </div>
 
         {renderContent()}
